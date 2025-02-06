@@ -23,5 +23,5 @@ fn main() {
     let mut s = Stpsyr::new("data/standard.csv");
     s.parse(&Power::from("Italy"), "A ven-tyr".to_string());
     s.apply();
-    s.render_svg("meems.svg".to_string()).unwrap();
+    s.render("meems.svg".to_string());
 }

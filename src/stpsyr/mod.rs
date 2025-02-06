@@ -12,7 +12,6 @@ mod adjusts;
 mod orders;
 mod parse;
 mod retreats;
-mod svg;
 mod util;
 
 impl Stpsyr {
