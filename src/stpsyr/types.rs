@@ -100,7 +100,8 @@ pub struct MapRegion {
     pub home_power: Option<Power>,
     pub unit: Option<Unit>,
     pub fleet_borders: Vec<Province>,
-    pub army_borders: Vec<Province>
+    pub army_borders: Vec<Province>,
+    pub center: (usize, usize),
 }
 impl fmt::Debug for MapRegion {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
