@@ -1,7 +1,6 @@
 use stpsyr::types::*;
 
 impl Stpsyr {
-
     // this is the function that actually moves units when their resolution is
     //   successful
     pub fn apply_resolved(&mut self) {
@@ -15,10 +14,12 @@ impl Stpsyr {
             if let Action::Move { ref to, .. } = order.action {
                 if order.resolution {
                     // we have a successful move
-                    let from_idx = self.map.iter()
-                        .position(|r| r.province == order.province).unwrap();
-                    let to_idx = self.map.iter()
-                        .position(|r| r.province == *to).unwrap();
+                    let from_idx = self
+                        .map
+                        .iter()
+                        .position(|r| r.province == order.province)
+                        .unwrap();
+                    let to_idx = self.map.iter().position(|r| r.province == *to).unwrap();
 
                     if let Some(ref unit) = self.map[to_idx].unit {
                         dislodged.push((to.clone(), unit.clone()));
@@ -68,7 +69,7 @@ impl Stpsyr {
                     self.dependencies.push(id);
                 }
                 self.orders[id].resolution
-            },
+            }
             OrderState::UNRESOLVED => {
                 let old_dep_count = self.dependencies.len();
 
@@ -82,8 +83,10 @@ impl Stpsyr {
                 if self.dependencies.len() == old_dep_count {
                     // result is not dependent on a guess
                     match self.orders[id].state {
-                        OrderState::RESOLVED => {},
-                        _ => { self.orders[id].resolution = first_result; }
+                        OrderState::RESOLVED => {}
+                        _ => {
+                            self.orders[id].resolution = first_result;
+                        }
                     }
                     self.orders[id].state = OrderState::RESOLVED;
                     return first_result;
@@ -131,11 +134,10 @@ impl Stpsyr {
         // the province being adjudicated
         let province = self.orders[id].province.clone();
         match self.orders[id].action.clone() {
-
             Action::Hold => {
                 // a hold order never fails (what would that even mean)
                 true
-            },
+            }
 
             Action::Move { to, convoyed } => {
                 let attack_strength = self.attack_strength(&province);
@@ -165,9 +167,11 @@ impl Stpsyr {
                     .collect::<Vec<Province>>();
 
                 // return whether it satisfies both these conditions
-                attack_strength > counter_strength && contesting_orders.iter()
-                    .all(|p| attack_strength > self.prevent_strength(p))
-            },
+                attack_strength > counter_strength
+                    && contesting_orders
+                        .iter()
+                        .all(|p| attack_strength > self.prevent_strength(p))
+            }
 
             Action::SupportHold { to } | Action::SupportMove { to, .. } => {
                 // a support is cut when...
@@ -184,7 +188,7 @@ impl Stpsyr {
                     o.province != to &&
                     // ... , and you can't cut your own support
                     o.owner != self.orders[id].owner)
-            },
+            }
 
             Action::Convoy { .. } => {
                 // a convoy only fails when it is dislodged
@@ -195,8 +199,7 @@ impl Stpsyr {
                         },
                         _ => false
                     } && self.resolve(o.id))
-            },
-
+            }
         }
     }
 
@@ -204,19 +207,21 @@ impl Stpsyr {
     //   its destination, taking into account dislodged fleets
     fn convoy_paths(&mut self, order: &Order) -> Vec<Vec<Province>> {
         match order.action {
-            Action::Move { ref to, convoyed } => { if convoyed {
+            Action::Move { ref to, convoyed } => {
+                if convoyed {
+                    // first, find all paths at all through water that get from
+                    //   the province of the order to the destination
+                    let paths: Vec<Vec<Province>> = self
+                        .find_paths(vec![self.get_region(&order.province).unwrap()], to)
+                        .iter()
+                        .map(|path| path.iter().map(|r| r.province.clone()).collect())
+                        .collect();
 
-                // first, find all paths at all through water that get from
-                //   the province of the order to the destination
-                let paths: Vec<Vec<Province>> = self.find_paths(
-                    vec![self.get_region(&order.province).unwrap()], to)
-                    .iter().map(|path|
-                        path.iter().map(|r| r.province.clone()).collect()
-                    ).collect();
-
-                // now filter those paths for the ones that are actually valid
-                paths.iter().filter(|path| {
-                    path.iter().skip(1).all(|&ref p|
+                    // now filter those paths for the ones that are actually valid
+                    paths
+                        .iter()
+                        .filter(|path| {
+                            path.iter().skip(1).all(|p|
                         // for every convoying fleet...
                         self.orders.clone().iter().any(|o|
                             o.province == *p && match o.action {
@@ -225,24 +230,34 @@ impl Stpsyr {
                                     *from == order.province && *to == *c_to
                                 }, _ => false
                             } && self.resolve(o.id)  // ... and it must succeed
-                        )
-                    )
-                }).cloned().collect()
-
-            } else { panic!("convoy_paths called on non-convoyed Move"); } },
-            _ => panic!("convoy_paths called on non-Move")
+                        ))
+                        })
+                        .cloned()
+                        .collect()
+                } else {
+                    panic!("convoy_paths called on non-convoyed Move");
+                }
+            }
+            _ => panic!("convoy_paths called on non-Move"),
         }
     }
 
     // utility function used from convoy_paths (see above)
-    fn find_paths<'a>(&'a self, path: Vec<&'a MapRegion>, target: &Province)
-            -> Vec<Vec<&MapRegion>> {
+    fn find_paths<'a>(
+        &'a self,
+        path: Vec<&'a MapRegion>,
+        target: &Province,
+    ) -> Vec<Vec<&'a MapRegion>> {
         // the "end" of the current chain
-        let region = path.last().unwrap().clone();
+        let region = path.last().unwrap();
         // if we've made it already, return
-        if region.fleet_borders.contains(target) { return vec![path]; }
+        if region.fleet_borders.contains(target) {
+            return vec![path];
+        }
         // otherwise, find the next fleet in the chain
-        self.map.iter().filter(|&r|
+        self.map
+            .iter()
+            .filter(|&r|
                 // it's empty water if we can move to it as a fleet but can't
                 // move to it as an army
                 region.fleet_borders.contains(&r.province) &&
@@ -256,28 +271,35 @@ impl Stpsyr {
                     }
                 ) &&
                 // we also need to make sure we don't get in an infinite loop
-                !path.contains(&r)).flat_map(|r| {
-                    // add the next fleet to the path
-                    let mut new_path = path.clone();
-                    new_path.push(r);
-                    // and recurse
-                    self.find_paths(new_path, target)
-                }).collect()
+                !path.contains(&r))
+            .flat_map(|r| {
+                // add the next fleet to the path
+                let mut new_path = path.clone();
+                new_path.push(r);
+                // and recurse
+                self.find_paths(new_path, target)
+            })
+            .collect()
     }
 
     fn hold_strength(&mut self, province: &Province) -> usize {
         if self.get_unit(province).is_some() {
             // figure out if the unit in this region is moving away
-            let move_id = self.orders.iter().find(|o|
-                match o.action {
-                    Action::Move { .. } => true, _ => false
-                } && o.province == *province).map(|o| o.id);
+            let move_id = self
+                .orders
+                .iter()
+                .find(|o| matches!(o.action, Action::Move { .. }) && o.province == *province)
+                .map(|o| o.id);
 
             if let Some(move_id) = move_id {
                 // if the unit moves away successfully, we treat the province
                 //   as empty. otherwise, it always has hold strength of 1,
                 //   regardless of support
-                if self.resolve(move_id) { 0 } else { 1 }
+                if self.resolve(move_id) {
+                    0
+                } else {
+                    1
+                }
             } else {
                 // hold strength is 1 plus the number of successful orders to
                 //   support hold
@@ -296,29 +318,43 @@ impl Stpsyr {
     fn attack_strength(&mut self, province: &Province) -> usize {
         // first, if there's no move order, attack strength doesn't make sense
         // otherwise, use it to find the destination and whether it's a convoy
-        let move_order = if let Some(move_order) = self.orders.iter().find(|o|
-                match o.action {
-                    Action::Move { .. } => true, _ => false
-                } && o.province == *province) { move_order }
-            else { panic!("attack_strength called on non-Move"); }.clone();
+        let move_order = if let Some(move_order) = self
+            .orders
+            .iter()
+            .find(|o| matches!(o.action, Action::Move { .. }) && o.province == *province)
+        {
+            move_order
+        } else {
+            panic!("attack_strength called on non-Move");
+        }
+        .clone();
         let (dest, convoyed) = match move_order.action {
             Action::Move { ref to, convoyed } => (to, convoyed),
-            _ => unreachable!()
+            _ => unreachable!(),
         };
 
         // attack strength is 0 if the path is invalid
-        if convoyed && self.convoy_paths(&move_order).is_empty() { return 0; }
+        if convoyed && self.convoy_paths(&move_order).is_empty() {
+            return 0;
+        }
 
         // now we check to see whether the unit at the destination has moved
         //   away, given that it's not a head-to-head battle. this is important
         //   because we cannot call resolve if it is one, as that would cause
         //   the recursion to become infinite
-        let move_id = self.orders.iter().find(|o|
-            (convoyed || match o.action {
-                Action::Move { ref to, convoyed } => convoyed || *to != *province,
-                _ => false
-            }) && o.province == *dest).map(|o| o.id);
-        let moved_away = move_id.map_or(false, |id| self.resolve(id));
+        let move_id = self
+            .orders
+            .iter()
+            .find(|o| {
+                (convoyed
+                    || match o.action {
+                        Action::Move { ref to, convoyed } => convoyed || *to != *province,
+                        _ => false,
+                    })
+                    && o.province == *dest
+            })
+            .map(|o| o.id);
+        let moved_away = move_id.is_some_and(|id| self.resolve(id));
 
         // we also figure out which power we're attacking
         let attacked_power = if moved_away {
@@ -329,7 +365,9 @@ impl Stpsyr {
         };
 
         // because if we attack ourselves, attack strength is always 0
-        if attacked_power == Some(move_order.owner) { return 0; }
+        if attacked_power == Some(move_order.owner) {
+            return 0;
+        }
 
         // otherwise, attack strength is 1 plus the number of successful orders
         //   to support the move
@@ -347,41 +385,56 @@ impl Stpsyr {
 
     fn defend_strength(&mut self, province: &Province) -> usize {
         // similar to attack strength, first find the move in question
-        let move_order = if let Some(move_order) = self.orders.iter().find(|o|
-                match o.action {
-                    Action::Move { .. } => true, _ => false
-                } && o.province == *province) { move_order }
-            else { panic!("defend_strength called on non-Move"); }.clone();
+        let move_order = if let Some(move_order) = self
+            .orders
+            .iter()
+            .find(|o| matches!(o.action, Action::Move { .. }) && o.province == *province)
+        {
+            move_order
+        } else {
+            panic!("defend_strength called on non-Move");
+        }
+        .clone();
         let dest = match move_order.action {
             Action::Move { ref to, .. } => to,
-            _ => unreachable!()
+            _ => unreachable!(),
         };
 
         // defend strength is just 1 plus number of successful support moves
-        let supports: Vec<usize> = self.orders.iter().filter(|o|
-            match o.action {
-                Action::SupportMove { ref from, ref to } =>
-                    *from == *province && *to == *dest,
-                _ => false
-            }).map(|o| o.id).collect();
+        let supports: Vec<usize> = self
+            .orders
+            .iter()
+            .filter(|o| match o.action {
+                Action::SupportMove { ref from, ref to } => *from == *province && *to == *dest,
+                _ => false,
+            })
+            .map(|o| o.id)
+            .collect();
 
         1 + supports.iter().filter(|&id| self.resolve(*id)).count()
     }
 
     fn prevent_strength(&mut self, province: &Province) -> usize {
         // same as always...
-        let move_order = if let Some(move_order) = self.orders.iter().find(|o|
-                match o.action {
-                    Action::Move { .. } => true, _ => false
-                } && o.province == *province) { move_order }
-            else { panic!("prevent_strength called on non-Move"); }.clone();
+        let move_order = if let Some(move_order) = self
+            .orders
+            .iter()
+            .find(|o| matches!(o.action, Action::Move { .. }) && o.province == *province)
+        {
+            move_order
+        } else {
+            panic!("prevent_strength called on non-Move");
+        }
+        .clone();
         let (dest, convoyed) = match move_order.action {
             Action::Move { ref to, convoyed } => (to, convoyed),
-            _ => unreachable!()
+            _ => unreachable!(),
         };
 
         // prevent strength also requires a successful path in case of convoy
-        if convoyed && self.convoy_paths(&move_order).is_empty() { return 0; }
+        if convoyed && self.convoy_paths(&move_order).is_empty() {
+            return 0;
+        }
 
         // if we're in a head-to-head battle and lose, prevent strength is 0
         let move_id = self.orders.iter().find(|o|
@@ -390,33 +443,40 @@ impl Stpsyr {
                 _ => false
             } && o.province == *dest).map(|o| o.id);
         if let Some(move_id) = move_id {
-            if !convoyed && self.resolve(move_id) { return 0; }
+            if !convoyed && self.resolve(move_id) {
+                return 0;
+            }
         }
 
         // otherwise, 1 plus number of successful support moves
-        let supports: Vec<usize> = self.orders.iter().filter(|o|
-            match o.action {
-                Action::SupportMove { ref from, ref to } =>
-                    *from == *province && *to == *dest,
-                _ => false
-            }).map(|o| o.id).collect();
+        let supports: Vec<usize> = self
+            .orders
+            .iter()
+            .filter(|o| match o.action {
+                Action::SupportMove { ref from, ref to } => *from == *province && *to == *dest,
+                _ => false,
+            })
+            .map(|o| o.id)
+            .collect();
 
         1 + supports.iter().filter(|&id| self.resolve(*id)).count()
     }
 
     fn backup_rule(&mut self, old_dep_count: usize) {
-        let dependencies = self.dependencies.drain(old_dep_count..)
+        let dependencies = self
+            .dependencies
+            .drain(old_dep_count..)
             .collect::<Vec<usize>>();
         let (mut only_moves, mut convoys) = (true, false);
 
         for &dep in &dependencies {
             match self.orders[dep].action {
-                Action::Move { .. } => {},
+                Action::Move { .. } => {}
                 Action::Convoy { .. } => {
                     only_moves = false;
                     convoys = true;
-                },
-                _ => only_moves = false
+                }
+                _ => only_moves = false,
             }
         }
 
@@ -427,9 +487,7 @@ impl Stpsyr {
                 self.orders[dep].state = OrderState::RESOLVED;
             } else if convoys {
                 // convoy paradox---make convoy fail as per Szykman
-                let is_convoy = match self.orders[dep].action {
-                    Action::Convoy { .. } => true, _ => false
-                };
+                let is_convoy = matches!(self.orders[dep].action, Action::Convoy { .. });
                 if is_convoy {
                     self.orders[dep].resolution = false;
                     self.orders[dep].state = OrderState::RESOLVED;
@@ -441,5 +499,4 @@ impl Stpsyr {
             }
         }
     }
-
 }

@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use stpsyr::types::*;
 
 impl Stpsyr {
-
     // get the unit currently in a province
     pub fn get_unit(&self, province: &Province) -> Option<Unit> {
         self.get_region(province).and_then(|r| r.unit.clone())
@@ -49,8 +48,7 @@ impl Stpsyr {
     pub fn next_phase(&mut self) {
         // update ownership
         for ref mut r in &mut self.map {
-            if !r.sc || self.phase == Phase::FallDiplomacy ||
-                    self.phase == Phase::FallRetreats {
+            if !r.sc || self.phase == Phase::FallDiplomacy || self.phase == Phase::FallRetreats {
                 if let Some(ref unit) = r.unit {
                     r.owner = Some(unit.owner.clone());
                 }
@@ -58,13 +56,15 @@ impl Stpsyr {
         }
 
         self.phase = match self.phase {
-            Phase::SpringDiplomacy => if self.dislodged.is_empty() {
-                Phase::FallDiplomacy
-            } else {
-                Phase::SpringRetreats
-            },
+            Phase::SpringDiplomacy => {
+                if self.dislodged.is_empty() {
+                    Phase::FallDiplomacy
+                } else {
+                    Phase::SpringRetreats
+                }
+            }
             Phase::SpringRetreats => Phase::FallDiplomacy,
-            Phase::FallDiplomacy | Phase::FallRetreats =>
+            Phase::FallDiplomacy | Phase::FallRetreats => {
                 if self.phase == Phase::FallRetreats || self.dislodged.is_empty() {
                     if self.sc_counts() != self.unit_counts() {
                         Phase::Builds
@@ -73,9 +73,12 @@ impl Stpsyr {
                     }
                 } else {
                     Phase::FallRetreats
-                },
-            Phase::Builds => { self.year += 1; Phase::SpringDiplomacy }
+                }
+            }
+            Phase::Builds => {
+                self.year += 1;
+                Phase::SpringDiplomacy
+            }
         };
     }
-
 }

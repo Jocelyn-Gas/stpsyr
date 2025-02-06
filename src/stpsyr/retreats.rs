@@ -3,7 +3,6 @@ use std::collections::HashSet;
 use stpsyr::types::*;
 
 impl Stpsyr {
-
     // the publicly exposed function to modify self.retreats
     pub fn add_retreat(&mut self, owner: Power, province: Province, action: RetreatAction) {
         // TODO refactor this method to get rid of repetition from verification
@@ -11,39 +10,53 @@ impl Stpsyr {
         // TODO can't retreat to the place that attacked you
 
         match self.phase {
-            Phase::SpringRetreats | Phase::FallRetreats => {},
-            _ => panic!("add_retreat called during non-retreat phase")
+            Phase::SpringRetreats | Phase::FallRetreats => {}
+            _ => panic!("add_retreat called during non-retreat phase"),
         };
 
         // there has to be a unit that was dislodged here to order it
-        let unit = if let Some(unit) = self.dislodged.iter().find(|&&(ref p, _)|
-                p == &province).map(|&(_, ref u)| u.clone()) { unit }
-            else { return; };
+        let unit = if let Some(unit) = self
+            .dislodged
+            .iter()
+            .find(|&(p, _)| p == &province)
+            .map(|(_, u)| u.clone())
+        {
+            unit
+        } else {
+            return;
+        };
 
         // can't order a unit that's not yours
-        if unit.owner != owner { return; }
+        if unit.owner != owner {
+            return;
+        }
 
         // can't order to a province you can't reach or a province that was
         //   contested during the last diplomacy phase
-        if match action {
-            RetreatAction::Move { ref to } => {
+        if match &action {
+            RetreatAction::Move { to } => {
                 let r = self.get_region(&province).unwrap();
-                self.contested.contains(to) || !match unit.unit_type {
-                    UnitType::Army => r.army_borders.clone(),
-                    UnitType::Fleet => r.fleet_borders.clone().into_iter()
-                        .filter(|p|
-                            p.from_coast == r.province.coast &&
-                            p.coast == to.coast)
-                        .collect()
-                }.contains(to)
-            },
-            _ => false
-        } { return; }
+                self.contested.contains(to)
+                    || !match unit.unit_type {
+                        UnitType::Army => r.army_borders.clone(),
+                        UnitType::Fleet => r
+                            .fleet_borders
+                            .clone()
+                            .into_iter()
+                            .filter(|p| p.from_coast == r.province.coast && p.coast == to.coast)
+                            .collect(),
+                    }
+                    .contains(to)
+            }
+            _ => false,
+        } {
+            return;
+        }
 
         self.retreats.push(Retreat {
-            owner: owner,
-            province: province,
-            action: action
+            owner,
+            province,
+            action,
         });
     }
 
@@ -58,36 +71,42 @@ impl Stpsyr {
             // we need a new scope for these to release the borrows later
             let (mut attempts, mut conflicts) = (HashSet::new(), HashSet::new());
 
-            for retreat in &self.retreats {
-                if let RetreatAction::Move { ref to } = retreat.action {
-                    if attempts.contains(to) { conflicts.insert(to); }
-                    else { attempts.insert(to); }
+            for retreat in self.retreats.iter() {
+                println!("{:?}", retreat.owner);
+                if let RetreatAction::Move { to } = &retreat.action {
+                    if attempts.contains(to) {
+                        conflicts.insert(to);
+                    } else {
+                        attempts.insert(to);
+                    }
                 }
             }
 
-            for retreat in &self.retreats {
-                match retreat.action {
-                    RetreatAction::Move { ref to } => {
+            for retreat in self.retreats.iter() {
+                match &retreat.action {
+                    RetreatAction::Move { to } => {
                         if !conflicts.contains(to) {
                             // process the retreat
-                            let from_idx = self.dislodged.iter()
-                                .position(|&(ref p, _)| *p == retreat.province).unwrap();
-                            let to_idx = self.map.iter()
-                                .position(|r| r.province == *to).unwrap();
+                            let from_idx = self
+                                .dislodged
+                                .iter()
+                                .position(|(r, _)| *r == retreat.province)
+                                .unwrap();
+                            let to_idx = self.map.iter().position(|r| r.province == *to).unwrap();
                             assert!(self.map[to_idx].unit.is_none());
-                            self.map[to_idx].unit = Some(self.dislodged[from_idx].1.clone());
+                            let (_, unit) = self.dislodged.get(from_idx).unwrap();
+
+                            self.map[to_idx].unit = Some(unit.clone());
                         }
-                    },
+                    }
                     // handle disbands as if they were NMRs - no difference anyway
-                    RetreatAction::Disband => {}
+                    &RetreatAction::Disband => {}
                 }
             }
         }
 
-        self.dislodged = vec![];
-
         self.next_phase();
+        self.dislodged = vec![];
         self.retreats = vec![];
     }
-
 }
