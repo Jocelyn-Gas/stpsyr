@@ -3,7 +3,6 @@ extern crate csv;
 
 use std::collections::HashSet;
 
-pub mod read;
 pub mod rendering;
 mod types;
 mod json;
