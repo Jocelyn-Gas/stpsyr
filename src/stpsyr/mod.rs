@@ -6,6 +6,7 @@ use std::collections::HashSet;
 pub mod read;
 pub mod rendering;
 mod types;
+mod json;
 pub use self::types::*;
 mod adjudicate;
 mod adjusts;
