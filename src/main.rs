@@ -18,10 +18,12 @@
 
 extern crate stpsyr;
 use stpsyr::*;
-
+extern crate serde_json;
 fn main() {
     let mut s = Stpsyr::new("data/standard.csv");
     s.parse(&Power::from("Italy"), "A ven-tyr".to_string());
     s.apply();
-    s.render("meems.svg".to_string());
+    let json_value = serde_json::to_string(&s).unwrap();
+    s.render_to_file("meems.svg".to_string());
+    println!("{}", json_value);
 }

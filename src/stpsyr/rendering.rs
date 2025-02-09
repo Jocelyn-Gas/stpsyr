@@ -6,7 +6,7 @@ use std::io::Write;
 use stpsyr::types::*;
 
 impl Stpsyr {
-    pub fn render(self, output_file: String) {
+    pub fn render(&self) -> String{
         let file_path = "data/standard.svg";
         let mut colors = HashMap::new();
         let mut definitions = HashMap::new();
@@ -36,43 +36,47 @@ impl Stpsyr {
         // Step 2: Modify SVG colors
         let modified_svg = change_fill_colors(&svg_content, &colors);
 
-        // Step 3: Open output file with buffering
-        let mut out_file = File::create(output_file).expect("Failed to create output file");
 
         // Step 4: Write modified SVG up to `</svg>`
         let svg_closing = "</svg>";
         let split_index = modified_svg
             .rfind(svg_closing)
             .unwrap_or(modified_svg.len());
-        let content_before_svg_end = &modified_svg[..split_index]; // Slice before </svg>
-        writeln!(out_file, "{}", content_before_svg_end).unwrap();
+        let mut content = modified_svg[..split_index].to_string(); // Slice before </svg>
 
         // Step 5: Append new units
         for region in self.map.iter() {
             if let Some(ref unit) = region.unit {
                 let (x, y) = region.center;
-                println!("Name: {}", &unit.owner.name);
                 let color = adjust_luminance(definitions.get(&unit.owner).unwrap(), 15.);
 
-                match unit.unit_type {
+                let unit_svg = match unit.unit_type {
                     UnitType::Army => {
-                        writeln!(out_file,
+                        format!(
 r#"<g style="fill:{}" stroke="black" stroke-width="2" transform="translate({},{})">
     <path d="M3.50009 14L7.00009 18.5H35L36 17.5L39 14.5C41.8 11.7 39.5 8.5 37.5 8L27.5 7.5H23.5V6.5H26.5C27 6 28.8 5 32 5C35.2 5 33.3333 3 32 2H29L28 1H24L23 2H19.5L18.5 2.5H14L13 3.5H1V5H13L16 6.5H18.5V7.5H11.5C11 8.5 8.5 10 7.00009 10C2.20009 10 2.66676 12.6667 3.50009 14Z" stroke="black"/>
-</g>"#, color, x, y).unwrap();
+</g>"#, color, x, y)
                     }
                     UnitType::Fleet => {
-                        writeln!(out_file,
+                        format!(
 r#"<g style="fill:{}" stroke="black" stroke-width="2" transform="translate({},{})">
     <path d="M31 14.5V12M31 12V11H28.5V8H26.5L25 6.5V1H23V3L21 4.5V10V8H20.5V5H17V10V7H15V9.5H14V12H12V14H11.5V12H9V14H1V16.5L2.5 18H41.5L45 12H41V13H37V14H34V12M31 12H34M35.5 12H34" stroke="black"/>
-</g>"#, color, x, y).unwrap();
+</g>"#, color, x, y)
                     }
-                }
+                };
+                content.push_str(&unit_svg);
             }
         }
 
-        // Step 6: Close the SVG tag
-        writeln!(out_file, "</svg>").unwrap();
+        content.push_str(svg_closing);
+        content.push('\n');
+        content
+    }
+    
+    pub fn render_to_file(&self, output_file: String) {
+        let modified_svg = self.render();
+        let mut out_file = File::create(output_file).expect("Failed to create output file");
+        writeln!(out_file, "{}", modified_svg).expect("Failed to write to file");
     }
 }
 
