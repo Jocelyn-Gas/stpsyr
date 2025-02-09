@@ -15,7 +15,7 @@ mod retreats;
 mod util;
 
 impl Stpsyr {
-    pub fn new(mapfile: &'static str) -> Stpsyr {
+    pub fn new(mapfile: &str) -> Stpsyr {
         // parse input file as CSV to generate the map
         let mut reader = csv::Reader::from_path(mapfile).unwrap();
 
@@ -86,5 +86,8 @@ impl Stpsyr {
             phase: Phase::SpringDiplomacy,
             year: 1901,
         }
+    }
+    pub fn parse_json(json: &str) -> Stpsyr{
+        serde_json::from_str(json).unwrap()
     }
 }
